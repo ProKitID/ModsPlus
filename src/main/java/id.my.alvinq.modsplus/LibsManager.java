@@ -63,16 +63,21 @@ public class LibsManager {
                 context.getClassLoader()
             );
 
-            invokeMain(dcl, mainClass);
+            invokeMain(dcl, mainClass, nativeDir);
 
         } catch (Exception e) {
             Logger.get().error("Gagal memuat library: " + e);
         }
     }
 
-    private void invokeMain(DexClassLoader dcl, String className) {
-        Thread.currentThread().setContextClassLoader(dcl);
+    private void invokeMain(DexClassLoader dcl, String className, File nd) {
+        //Thread.currentThread().setContextClassLoader(dcl);
         try {
+            if(nd != null) {
+            String nld = nd.getAbsoultePath();
+            Object pathList = Utils.getPathList(dcl);
+            Utils.injectNativeLibraries(nld, pathList);
+            }
             Class<?> clazz = dcl.loadClass(className);
             Method onLoad = clazz.getDeclaredMethod("onLoad", Context.class);
             onLoad.invoke(null, context);
