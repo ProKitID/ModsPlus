@@ -9,7 +9,7 @@ import java.util.jar.*;
 import org.json.JSONObject;
 
 import org.levimc.launcher.core.minecraft.pesdk.utils.AssetOverrideManager;
-import com.mojang.minecraftpe.MainActivity;
+//import com.mojang.minecraftpe.MainActivity;
 
 public class LibsManager {
     private final Context context;
@@ -44,10 +44,10 @@ public class LibsManager {
         try {
             if(hasAssets) {
             AssetExtractor.extract(jarFile);
-            MainActivity activity = (MainActivity) context;
+            //MainActivity activity = (MainActivity) context;
             String jarName = jarFile.getAbsolutePath();
             String apkName = jarName.substring(0, jarName.length() - 4) + ".apk";
-            AssetOverrideManager.addAssetOverride(activity.getAssets(), apkName);
+            AssetOverrideManager.addAssetOverride(context.getAssets(), apkName);
             }
             
             File nativeDir = null;
