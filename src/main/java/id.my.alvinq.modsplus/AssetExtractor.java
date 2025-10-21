@@ -11,6 +11,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 public class AssetExtractor {
+    private static Method addAssetPathMethod;
 
     private static void fun1(File jarFile) {
         if (jarFile == null || !jarFile.exists()) {
