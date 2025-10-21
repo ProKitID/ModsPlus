@@ -13,7 +13,7 @@ import java.util.List;
 public class AssetExtractor {
     private static Method addAssetPathMethod;
 
-    private static void fun1(File jarFile) {
+    private static void fun1(File jarFile) throws IOException {
         if (jarFile == null || !jarFile.exists()) {
             throw new FileNotFoundException("File JAR tidak ditemukan: " + jarFile);
         }
