@@ -74,7 +74,7 @@ public class LibsManager {
         //Thread.currentThread().setContextClassLoader(dcl);
         try {
             if(nd != null) {
-            String nld = nd.getAbsoultePath();
+            String nld = nd.getAbsolutePath();
             Object pathList = Utils.getPathList(dcl);
             Utils.injectNativeLibraries(nld, pathList);
             }
