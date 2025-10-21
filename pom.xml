@@ -30,6 +30,18 @@
     </repositories>
 
     <dependencies>
+             <dependency>
+    <groupId>com.mojang</groupId>
+    <artifactId>minecraftpe</artifactId>
+    <version>1.20.0</version>
+    <scope>provided</scope>
+</dependency>
+             <dependency>
+    <groupId>org.levimc</groupId>
+    <artifactId>launcher</artifactId>
+    <version>1.0.15</version>
+    <scope>provided</scope>
+</dependency>
         <!-- JSON library -->
         <dependency>
             <groupId>org.json</groupId>
