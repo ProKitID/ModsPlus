@@ -7,7 +7,7 @@ import java.util.jar.JarFile;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.util.List;
 
 public class AssetExtractor {
