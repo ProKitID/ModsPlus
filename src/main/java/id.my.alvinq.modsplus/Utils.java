@@ -30,13 +30,13 @@ import org.json.JSONObject;
 
 public class Utils {
 
-  public Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
+  public static Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
         Field field = Objects.requireNonNull(loader.getClass().getSuperclass()).getDeclaredField("pathList");
         field.setAccessible(true);
         return field.get(loader);
   }
 
-  public void injectNativeLibraries(String nld, Object pathList) throws ReflectiveOperationException {
+  public static void injectNativeLibraries(String nld, Object pathList) throws ReflectiveOperationException {
         try {
             final File newLibDir = new File(nld);
 
@@ -99,7 +99,7 @@ public class Utils {
         }
   }
 
-  public void copyFileFromJar(String jarFilePath, String sourceFileName, File destFile) throws IOException {
+  public static void copyFileFromJar(String jarFilePath, String sourceFileName, File destFile) throws IOException {
     try (JarFile jarFile = new JarFile(jarFilePath)) {
         JarEntry jarEntry = jarFile.getJarEntry(sourceFileName);
         try (InputStream in = jarFile.getInputStream(jarEntry);
@@ -113,7 +113,7 @@ public class Utils {
     }
   }
 
-  public void copyFolderFromJar(String jarFilePath, String sourceFolderName, File destFolder) throws IOException {
+  public static void copyFolderFromJar(String jarFilePath, String sourceFolderName, File destFolder) throws IOException {
     try (JarFile jarFile = new JarFile(jarFilePath)) {
         Enumeration<JarEntry> entries = jarFile.entries();
         while (entries.hasMoreElements()) {
