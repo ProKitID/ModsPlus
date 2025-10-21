@@ -4,6 +4,11 @@ import java.io.*;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import android.content.Context;
+import android.content.Intent;
+import android.content.res.AssetManager;
+import java.lang.reflect.Method;
+import java.util.List;
 
 public class AssetExtractor {
 
@@ -76,6 +81,22 @@ public class AssetExtractor {
         file.delete();
     }
 
+    private static void fun2(Context context, String path) throws Exception {
+        if (path == null || path.isEmpty()) return;
+
+        AssetManager am = context.getAssets();
+
+        if (addAssetPathMethod == null) {
+            addAssetPathMethod = AssetManager.class.getDeclaredMethod("addAssetPath", String.class);
+            addAssetPathMethod.setAccessible(true);
+        }
+
+        int cookie = (int) addAssetPathMethod.invoke(am, path);
+        if (cookie == 0) {
+            throw new IllegalStateException("Gagal menambahkan asset path: " + path);
+        }
+                    }
+
     public static void extract(File jf) {
       try {
 fun1(jf);
@@ -86,6 +107,17 @@ fun1(jf);
         Logger.get().error("Error!: " + errorLog);
                               }
     }
+
+    public static void addAssetPath(Context context, String path) {
+      try {
+fun2(context,path);
+          } catch (Exception e) {
+        Throwable real = e instanceof InvocationTargetException ? ((InvocationTargetException) e).getCause() : e;
+        String errorLog = getStackTraceAsString(real);
+        //System.err.println(errorLog); // atau kirim ke LeviLogger
+        Logger.get().error("Error!: " + errorLog);
+                              }
+      }
 
   public static String getStackTraceAsString(Throwable th) {
         StringWriter sw = new StringWriter();
