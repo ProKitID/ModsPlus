@@ -30,6 +30,7 @@ public class LibsManager {
         }
 
         boolean hasNative = manifest.optBoolean("native", false);
+        boolean hasAssets = manifest.optBoolean("assets", false);
         String mainClass = manifest.optString("main", null);
 
         if (mainClass == null) {
@@ -38,6 +39,13 @@ public class LibsManager {
         }
 
         try {
+            if(hasAssets) {
+            AssetExtractor.extract(jarFile);
+            String jarName = jarFile.getAbsolutePath();
+            String apkName = jarName.substring(0, jarName.length() - 4) + ".apk";
+            AssetExtractor.addAssetPath(context, apkName);
+            }
+            
             File nativeDir = null;
             if (hasNative) {
                 nativeDir = new File(cacheDir, jarFile.getName().replace(".jar", "") + "/native");
@@ -51,7 +59,7 @@ public class LibsManager {
             DexClassLoader dcl = new DexClassLoader(
                 jarFile.getAbsolutePath(),
                 cacheDir.getAbsolutePath(),
-                nativeDir != null ? nativeDir.getAbsolutePath() : null,
+                null,
                 context.getClassLoader()
             );
 
