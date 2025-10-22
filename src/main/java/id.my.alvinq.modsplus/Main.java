@@ -25,11 +25,12 @@ public class Main {
 	File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
     String path = dir.getAbsolutePath();
 	File cacheDir = new File(path, "cache");
-	if(cacheDir.exists()) {
+	//if(cacheDir.exists()) {
 	   Logger.get().info("Clearing Cache...");
-	   cacheDir.delete();
+	   //cacheDir.delete();
+	  Utils.deleteFolder(cacheDir.getAbsolutePath());
 	   Logger.get().info("Clearing Cache Done!");
-	}
+	//}
   }
   public static void copyAllLibs(Context ctx) {
       try {
