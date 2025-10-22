@@ -57,7 +57,7 @@ public class LibsManager {
             
             File nativeDir = null;
             if (hasNative) {
-                nativeDir = new File(cacheDir, jarFile.getName().replace(".jar", "") + "/native");
+                nativeDir = new File(cacheDir, "libs/" + jarFile.getName().replace(".jar", "") + "/native");
                 if (!nativeDir.exists() && !nativeDir.mkdirs()) {
                     Logger.get().error("Gagal membuat direktori native: " + nativeDir);
                     return;
