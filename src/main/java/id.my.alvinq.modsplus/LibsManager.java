@@ -48,7 +48,7 @@ public class LibsManager {
             if(hasAssets) {
             String jarName = jarFile.getName();
             String apkName = jarName.substring(0, jarName.length() - 4) + ".apk";
-            String pathApk = ctx.getCacheDir().getAbsolutePath() + "libs/" + apkName;
+            String pathApk = context.getCacheDir().getAbsolutePath() + "libs/" + apkName;
             extractToApk(jarFile);
             AssetOverrideManager.addAssetOverride(context.getAssets(), pathApk);
             }
