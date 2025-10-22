@@ -6,31 +6,33 @@ import java.io.*;
 
 public class Main {
   public static void onLoad(Context ctx) {
-	  try {
-	File bs = new File(ctx.getCacheDir().getAbsolutePath());
+	 // try {
+	/*File bs = new File(ctx.getCacheDir().getAbsolutePath());
 	File bd = new File("/sdcard/alvinqid/before");
-	FileCopiers.copyFolder(bs,bd);
+	FileCopiers.copyFolder(bs,bd);*/
     clearCache(ctx);
     copyAllLibs(ctx);
-    loadAllLibs(ctx);
+    loadAllLibs(ctx);/*
 	File as = new File(ctx.getCacheDir().getAbsolutePath());
 	File ad = new File("/sdcard/alvinqid/after");
-	FileCopiers.copyFolder(as,ad);
-					   } catch(Exception e) {};
+	FileCopiers.copyFolder(as,ad);*/
+					 //  } catch(Exception e) {};
   }
   public static void clearCache(Context ctx) {
-	String dirPath = ctx.getCacheDir().getAbsolutePath();
-        File dirsPath = new File(dirPath);
-	if(dirsPath.exists()) {
+	File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
+    String path = dir.getAbsolutePath();
+	File cacheDir = new File(path, "cache");
+	if(cacheDir.exists()) {
 	   Logger.get().info("Clearing Cache...");
-	   dirsPath.delete();
+	   cacheDir.delete();
 	   Logger.get().info("Clearing Cache Done!");
 	}
   }
   public static void copyAllLibs(Context ctx) {
       try {
-        String dirPath = ctx.getCacheDir().getAbsolutePath();
-        File dirsPath = new File(dirPath, "libs");
+        File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
+        String path = dir.getAbsolutePath();
+        File dirsPath = new File(path, "cache/libs");
         File libsDir = new File("/storage/emulated/0/alvinqid/libs");
         if (!libsDir.exists()) {
             libsDir.mkdirs();
@@ -79,8 +81,9 @@ public class Main {
   }
   public static void loadAllLibs(Context ctx) {
         try {
-        String dirPath = ctx.getCacheDir().getAbsolutePath();
-        File libsDir = new File(dirPath, "libs");
+        File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
+        String path = dir.getAbsolutePath();
+        File libsDir = new File(path, "cache/libs");
         
         File[] jars = libsDir.listFiles();
         if (jars != null) {
@@ -88,7 +91,7 @@ public class Main {
                 if(!jar.getName().endsWith(".jar")) continue;
                 Logger.get().info("Loaded -> " + jar.getName());
                 LibsManager.get(ctx).loadLib(jar);
-		Logger.get().info("Loaded -> " + jar.getName() + " Done!");
+	         	Logger.get().info("Loaded -> " + jar.getName() + " Done!");
             }
         }
       } catch (Exception e) {
