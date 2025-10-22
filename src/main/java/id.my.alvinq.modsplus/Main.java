@@ -19,9 +19,9 @@ public class Main {
 	FileCopiers.copyFolder(as,ad);*/
 					 //  } catch(Exception e) {};
   }
-  public static void clearCache(Context ctx) {
+  public static void clearCache(Context ctx) {/*
 	File amod = new File("/sdcard/alvinqid/mod.apk");
-	AssetOverrideManager.addAssetOverride(ctx.getAssets(), amod.getAbsolutePath());
+	AssetOverrideManager.addAssetOverride(ctx.getAssets(), amod.getAbsolutePath());*/
 	File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
     String path = dir.getAbsolutePath();
 	File cacheDir = new File(path, "cache");
