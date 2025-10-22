@@ -8,6 +8,9 @@ import java.lang.reflect.*;
 import java.util.jar.*;
 import org.json.JSONObject;
 
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
 import org.levimc.launcher.core.minecraft.pesdk.utils.AssetOverrideManager;
 //import com.mojang.minecraftpe.MainActivity;
 
