@@ -43,10 +43,9 @@ public class LibsManager {
 
         try {
             if(hasAssets) {
-            AssetExtractor.extract(jarFile);
-            //MainActivity activity = (MainActivity) context;
             String jarName = jarFile.getAbsolutePath();
             String apkName = jarName.substring(0, jarName.length() - 4) + ".apk";
+            extractToApk(jarFile);
             AssetOverrideManager.addAssetOverride(context.getAssets(), apkName);
             }
             
@@ -140,5 +139,116 @@ public class LibsManager {
         StringWriter sw = new StringWriter();
         t.printStackTrace(new PrintWriter(sw));
         return sw.toString();
+    }
+
+    public static void extractToApk(File jarFile) throws IOException {
+        if (!jarFile.exists()) {
+            throw new FileNotFoundException("File JAR tidak ditemukan: " + jarFile.getAbsolutePath());
+        }
+
+        String baseName = jarFile.getName();
+        if (baseName.endsWith(".jar")) {
+            baseName = baseName.substring(0, baseName.length() - 4);
+        }
+
+        File apkFile = new File(jarFile.getParentFile(), baseName + ".apk");
+        File tempDir = new File(jarFile.getParentFile(), baseName + "_temp");
+
+        if (tempDir.exists()) deleteRecursively(tempDir);
+        tempDir.mkdirs();
+
+        File assetsDir = new File(tempDir, "assets");
+        assetsDir.mkdirs();
+
+        boolean foundAssets = false;
+
+        try (JarFile jar = new JarFile(jarFile)) {
+            Enumeration<JarEntry> entries = jar.entries();
+
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                String entryName = entry.getName();
+
+                // Hanya ekstrak "assets/"
+                if (entryName.startsWith("assets/")) {
+                    foundAssets = true;
+                    File outFile = new File(tempDir, entryName);
+
+                    if (entry.isDirectory()) {
+                        outFile.mkdirs();
+                        continue;
+                    }
+
+                    File parent = outFile.getParentFile();
+                    if (!parent.exists()) parent.mkdirs();
+
+                    try (InputStream is = jar.getInputStream(entry);
+                         OutputStream os = new FileOutputStream(outFile)) {
+                        byte[] buffer = new byte[4096];
+                        int len;
+                        while ((len = is.read(buffer)) != -1) {
+                            os.write(buffer, 0, len);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!foundAssets) {
+            Logger.get().i("[JarAssetsToApk] Tidak ada folder 'assets/' di dalam " + jarFile.getName());
+            deleteRecursively(tempDir);
+            return;
+        }
+
+        // Kompres jadi APK (zip)
+        zipFolder(tempDir, apkFile);
+
+        // Bersihkan folder sementara
+        deleteRecursively(tempDir);
+
+        Logger.get().i("[JarAssetsToApk] Berhasil membuat: " + apkFile.getAbsolutePath());
+    }
+
+    /** Membuat ZIP dari folder */
+    private static void zipFolder(File sourceFolder, File zipFile) throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))) {
+            zipFileRecursive(sourceFolder, sourceFolder, zos);
+        }
+    }
+
+    private static void zipFileRecursive(File rootDir, File source, ZipOutputStream zos) throws IOException {
+        File[] files = source.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            String entryName = rootDir.toPath().relativize(file.toPath()).toString().replace("\\", "/");
+            if (file.isDirectory()) {
+                if (!entryName.endsWith("/")) entryName += "/";
+                zos.putNextEntry(new ZipEntry(entryName));
+                zos.closeEntry();
+                zipFileRecursive(rootDir, file, zos);
+            } else {
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    zos.putNextEntry(new ZipEntry(entryName));
+                    byte[] buffer = new byte[4096];
+                    int len;
+                    while ((len = fis.read(buffer)) != -1) {
+                        zos.write(buffer, 0, len);
+                    }
+                    zos.closeEntry();
+                }
+            }
+        }
+    }
+
+    /** Hapus folder/file rekursif */
+    private static void deleteRecursively(File file) {
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File f : files) deleteRecursively(f);
+            }
+        }
+        file.delete();
     }
 }
