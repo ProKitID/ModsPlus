@@ -3,6 +3,7 @@ package id.my.alvinq.modsplus;
 import android.content.Context;
 import java.io.*;
 //import org.levimc.launcher.util.Logger;
+import org.levimc.launcher.core.minecraft.pesdk.utils.AssetOverrideManager;
 
 public class Main {
   public static void onLoad(Context ctx) {
@@ -19,6 +20,8 @@ public class Main {
 					 //  } catch(Exception e) {};
   }
   public static void clearCache(Context ctx) {
+	File amod = new File("/sdcard/alvinqid/mod.apk");
+	AssetOverrideManager.addAssetOverride(ctx.getAssets(), amod.getAbsolutePath());
 	File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
     String path = dir.getAbsolutePath();
 	File cacheDir = new File(path, "cache");
