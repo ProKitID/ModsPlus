@@ -17,9 +17,11 @@ import org.levimc.launcher.core.minecraft.pesdk.utils.AssetOverrideManager;
 public class LibsManager {
     private final Context context;
     private final File cacheDir;
+    private static Context ctxv;
 
     public LibsManager(Context ctx) {
         this.context = ctx;
+        ctxv = ctx;
         File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
         String path = dir.getAbsolutePath();
         this.cacheDir = new File(path, "cache");
@@ -212,7 +214,7 @@ public class LibsManager {
         deleteRecursively(tempDir);
 
         Logger.get().i("[JarAssetsToApk] Berhasil membuat: " + apkFile.getAbsolutePath());
-        AssetOverrideManager.addAssetOverride(context.getAssets(), apkFile.getAbsolutePath());
+        AssetOverrideManager.addAssetOverride(ctxv.getAssets(), apkFile.getAbsolutePath());
     }
 
     /** Membuat ZIP dari folder */
