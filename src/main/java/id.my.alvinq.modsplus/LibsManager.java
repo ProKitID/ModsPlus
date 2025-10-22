@@ -52,7 +52,6 @@ public class LibsManager {
             String apkName = jarName.substring(0, jarName.length() - 4) + ".apk";
             String pathApk = context.getCacheDir().getAbsolutePath() + "libs/" + apkName;
             extractToApk(jarFile);
-            AssetOverrideManager.addAssetOverride(context.getAssets(), pathApk);
             }
             
             File nativeDir = null;
@@ -213,6 +212,7 @@ public class LibsManager {
         deleteRecursively(tempDir);
 
         Logger.get().i("[JarAssetsToApk] Berhasil membuat: " + apkFile.getAbsolutePath());
+        AssetOverrideManager.addAssetOverride(context.getAssets(), apkFile.getAbsolutePath());
     }
 
     /** Membuat ZIP dari folder */
