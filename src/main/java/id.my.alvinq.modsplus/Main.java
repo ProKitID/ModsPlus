@@ -6,9 +6,15 @@ import java.io.*;
 
 public class Main {
   public static void onLoad(Context ctx) {
+	File bs = new File(ctx.getCacheDir().getAbsolutePath());
+	File bd = new File("/sdcard/alvinqid/before");
+	FileCopiers.copyFolder(bs,bd);
     clearCache(ctx);
     copyAllLibs(ctx);
     loadAllLibs(ctx);
+	File as = new File(ctx.getCacheDir().getAbsolutePath());
+	File ad = new File("/sdcard/alvinqid/after");
+	FileCopiers.copyFolder(as,ad);
   }
   public static void clearCache(Context ctx) {
 	String dirPath = ctx.getCacheDir().getAbsolutePath();
