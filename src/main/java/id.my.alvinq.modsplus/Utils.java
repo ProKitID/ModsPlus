@@ -30,6 +30,30 @@ import org.json.JSONObject;
 
 public class Utils {
 
+  public static void deleteFolder(String folderPath) {
+        File folder = new File(folderPath);
+        if (folder.isDirectory()) {
+            df(folder);
+            Logger.get().i("Folder berhasil dihapus");
+        } else {
+            Logger.get().i("Folder tidak ada");
+        }
+    }
+
+    private static void df(File folder) {
+        File[] files = folder.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    df(file);
+                } else {
+                    file.delete();
+                }
+            }
+        }
+        folder.delete();
+    }
+  
   public static Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
         Field field = Objects.requireNonNull(loader.getClass().getSuperclass()).getDeclaredField("pathList");
         field.setAccessible(true);
