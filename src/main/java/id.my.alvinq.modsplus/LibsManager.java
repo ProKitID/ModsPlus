@@ -20,7 +20,9 @@ public class LibsManager {
 
     public LibsManager(Context ctx) {
         this.context = ctx;
-        this.cacheDir = new File(ctx.getCacheDir(), "dexout");
+        File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
+        String path = dir.getAbsolutePath();
+        this.cacheDir = new File(path, "cache");
         if (!cacheDir.exists()) cacheDir.mkdirs();
     }
 
