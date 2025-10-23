@@ -12,7 +12,10 @@ public class Utils {
     public static void deleteFolder(String path) {
         File f = new File(path);
         if (!f.exists()) return;
-        if (f.isDirectory()) for (File c : Objects.requireNonNull(f.listFiles())) deleteFolder(c.getPath());
+        if (f.isDirectory()) {
+            File[] files = f.listFiles();
+            if (files != null) for (File c : files) deleteFolder(c.getPath());
+        }
         f.delete();
         Logger.get().i("Folder " + (f.exists() ? "gagal dihapus" : "berhasil dihapus"));
     }
@@ -62,7 +65,7 @@ public class Utils {
         try (JarFile j = new JarFile(jar);
              InputStream in = j.getInputStream(j.getJarEntry(src));
              OutputStream out = new FileOutputStream(dst)) {
-            in.transferTo(out);
+            copyStream(in, out);
         }
     }
 
@@ -77,7 +80,7 @@ public class Utils {
                 outFile.getParentFile().mkdirs();
                 try (InputStream in = j.getInputStream(en);
                      OutputStream out = new FileOutputStream(outFile)) {
-                    in.transferTo(out);
+                    copyStream(in, out);
                 }
             }
         }
@@ -87,7 +90,15 @@ public class Utils {
         dst.getParentFile().mkdirs();
         try (InputStream in = new FileInputStream(src);
              OutputStream out = new FileOutputStream(dst)) {
-            in.transferTo(out);
+            copyStream(in, out);
+        }
+    }
+
+    private static void copyStream(InputStream in, OutputStream out) throws IOException {
+        byte[] buf = new byte[8192];
+        int len;
+        while ((len = in.read(buf)) != -1) {
+            out.write(buf, 0, len);
         }
     }
 }
