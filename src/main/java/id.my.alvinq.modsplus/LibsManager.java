@@ -11,8 +11,7 @@ import org.json.JSONObject;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.levimc.launcher.core.minecraft.pesdk.utils.AssetOverrideManager;
-//import com.mojang.minecraftpe.MainActivity;
+import android.content.res.AssetManager;
 
 public class LibsManager {
     private final Context context;
@@ -214,7 +213,7 @@ public class LibsManager {
         deleteRecursively(tempDir);
 
         Logger.get().i("[JarAssetsToApk] Berhasil membuat: " + apkFile.getAbsolutePath());
-        AssetOverrideManager.addAssetOverride(ctxv.getAssets(), apkFile.getAbsolutePath());
+        addAssetOverride(ctxv.getAssets(), apkFile.getAbsolutePath());
     }
 
     /** Membuat ZIP dari folder */
@@ -258,5 +257,14 @@ public class LibsManager {
             }
         }
         file.delete();
+    }
+
+    public static void addAssetOverride(AssetManager mgr, String packageResourcePath) {
+        try {
+            Method method = AssetManager.class.getMethod("addAssetPath", String.class);
+            method.invoke(mgr, packageResourcePath);
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
     }
 }
