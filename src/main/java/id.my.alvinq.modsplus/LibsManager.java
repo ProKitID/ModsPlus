@@ -54,14 +54,14 @@ public class LibsManager {
                     Logger.get().error("Gagal membuat direktori native: " + nativeDir);
                     return;
                 }
-                copyFolderFromJar(jarFile.getAbsolutePath(), "native", nativeDir);
+                Utils.copyFolderFromJar(jarFile.getAbsolutePath(), "native", nativeDir);
             }
 
             DexClassLoader dcl = new DexClassLoader(
-                jarFile.getAbsolutePath(),
-                cacheDir.getAbsolutePath(),
-                null,
-                context.getClassLoader()
+                    jarFile.getAbsolutePath(),
+                    cacheDir.getAbsolutePath(),
+                    null,
+                    context.getClassLoader()
             );
 
             invokeMain(dcl, mainClass, nativeDir);
@@ -102,28 +102,6 @@ public class LibsManager {
         }
     }
 
-    private void copyFolderFromJar(String jarPath, String folderName, File destDir) throws IOException {
-        try (JarFile jar = new JarFile(jarPath)) {
-            Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                if (!entry.getName().startsWith(folderName + "/") || entry.isDirectory()) continue;
-                File destFile = new File(destDir, entry.getName().substring(folderName.length() + 1));
-                destFile.getParentFile().mkdirs();
-                try (InputStream in = jar.getInputStream(entry);
-                     OutputStream out = new FileOutputStream(destFile)) {
-                    in.transferTo(out);
-                }
-            }
-        }
-    }
-
-    private String getStackTraceAsString(Throwable t) {
-        StringWriter sw = new StringWriter();
-        t.printStackTrace(new PrintWriter(sw));
-        return sw.toString();
-    }
-
     public static void extractToApk(File jarFile) throws IOException {
         if (!jarFile.exists()) throw new FileNotFoundException("File JAR tidak ditemukan: " + jarFile.getAbsolutePath());
 
@@ -131,7 +109,7 @@ public class LibsManager {
         File apkFile = new File(jarFile.getParentFile(), baseName + ".apk");
         File tempDir = new File(jarFile.getParentFile(), baseName + "_temp");
 
-        if (tempDir.exists()) deleteRecursively(tempDir);
+        if (tempDir.exists()) Utils.deleteFolder(tempDir.getAbsolutePath());
         tempDir.mkdirs();
         File assetsDir = new File(tempDir, "assets");
         assetsDir.mkdirs();
@@ -151,19 +129,19 @@ public class LibsManager {
                 outFile.getParentFile().mkdirs();
                 try (InputStream is = jar.getInputStream(entry);
                      OutputStream os = new FileOutputStream(outFile)) {
-                    is.transferTo(os);
+                    Utils.copyStream(is, os);
                 }
             }
         }
 
         if (!foundAssets) {
             Logger.get().i("[JarAssetsToApk] Tidak ada folder 'assets/' di dalam " + jarFile.getName());
-            deleteRecursively(tempDir);
+            Utils.deleteFolder(tempDir.getAbsolutePath());
             return;
         }
 
         zipFolder(tempDir, apkFile);
-        deleteRecursively(tempDir);
+        Utils.deleteFolder(tempDir.getAbsolutePath());
         Logger.get().i("[JarAssetsToApk] Berhasil membuat: " + apkFile.getAbsolutePath());
         addAssetOverride(ctxv.getAssets(), apkFile.getAbsolutePath());
     }
@@ -187,19 +165,17 @@ public class LibsManager {
             } else {
                 try (InputStream fis = new FileInputStream(file)) {
                     zos.putNextEntry(new ZipEntry(entryName));
-                    fis.transferTo(zos);
+                    Utils.copyStream(fis, zos);
                     zos.closeEntry();
                 }
             }
         }
     }
 
-    private static void deleteRecursively(File file) {
-        if (file.isDirectory()) {
-            File[] files = file.listFiles();
-            if (files != null) for (File f : files) deleteRecursively(f);
-        }
-        file.delete();
+    private String getStackTraceAsString(Throwable t) {
+        StringWriter sw = new StringWriter();
+        t.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
     }
 
     public static void addAssetOverride(AssetManager mgr, String packagePath) {
