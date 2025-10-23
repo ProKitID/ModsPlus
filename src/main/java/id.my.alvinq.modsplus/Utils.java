@@ -23,48 +23,71 @@ public class Utils {
     }
 
     public static Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
-        Class<?> superCls = loader.getClass().getSuperclass();
-        if (superCls == null) throw new ReflectiveOperationException("Superclass dari loader tidak ditemukan");
-        Field f = superCls.getDeclaredField("pathList");
-        f.setAccessible(true);
-        return f.get(loader);
-    }
+        Field field = Objects.requireNonNull(loader.getClass().getSuperclass()).getDeclaredField("pathList");
+        field.setAccessible(true);
+        return field.get(loader);
+  }
 
-    public static void injectNativeLibraries(String path, Object list) throws ReflectiveOperationException {
+  public static void injectNativeLibraries(String nld, Object pathList) throws ReflectiveOperationException {
         try {
-            File dir = new File(path);
-            Class<?> cls = list.getClass();
+            final File newLibDir = new File(nld);
 
-            Field fDirs = cls.getDeclaredField("nativeLibraryDirectories");
-            fDirs.setAccessible(true);
-            List<File> dirs = new ArrayList<>((Collection<File>) fDirs.get(list));
-            dirs.removeIf(dir::equals);
-            dirs.add(0, dir);
-            fDirs.set(list, dirs);
+            Field nativeLibraryDirectoriesField = pathList.getClass().getDeclaredField("nativeLibraryDirectories");
+            nativeLibraryDirectoriesField.setAccessible(true);
 
-            Field fSys = cls.getDeclaredField("systemNativeLibraryDirectories");
-            fSys.setAccessible(true);
-            List<File> sys = (List<File>) fSys.get(list);
-            if (sys != null) dirs.addAll(sys);
-
-            Field fElem = cls.getDeclaredField("nativeLibraryPathElements");
-            fElem.setAccessible(true);
-
-            Method make;
-            Object[] elem;
-            if (Build.VERSION.SDK_INT >= 25) {
-                make = cls.getDeclaredMethod("makePathElements", List.class);
-                make.setAccessible(true);
-                elem = (Object[]) make.invoke(list, dirs);
-            } else {
-                make = cls.getDeclaredMethod("makePathElements", List.class, File.class, List.class);
-                make.setAccessible(true);
-                elem = (Object[]) make.invoke(list, dirs, null, new ArrayList<>());
+            Collection<File> currentDirs = (Collection<File>) nativeLibraryDirectoriesField.get(pathList);
+            if (currentDirs == null) {
+                currentDirs = new ArrayList<>();
             }
 
-            fElem.set(list, elem);
-        } catch (Exception e) {
-            throw new ReflectiveOperationException("Inject native libraries gagal", e);
+            List<File> libDirs = new ArrayList<>(currentDirs);
+
+            Iterator<File> it = libDirs.iterator();
+            while (it.hasNext()) {
+                File libDir = it.next();
+                if (newLibDir.equals(libDir)) {
+                    it.remove();
+                    break;
+                }
+            }
+            libDirs.add(0, newLibDir);
+            nativeLibraryDirectoriesField.set(pathList, libDirs);
+
+            Field nativeLibraryPathElementsField = pathList.getClass().getDeclaredField("nativeLibraryPathElements");
+            nativeLibraryPathElementsField.setAccessible(true);
+
+            Object[] elements;
+
+            if (Build.VERSION.SDK_INT >= 25) {
+                Method makePathElements = pathList.getClass().getDeclaredMethod("makePathElements", List.class);
+                makePathElements.setAccessible(true);
+
+                Field systemNativeLibDirsField = pathList.getClass().getDeclaredField("systemNativeLibraryDirectories");
+                systemNativeLibDirsField.setAccessible(true);
+                List<File> systemLibDirs = (List<File>) systemNativeLibDirsField.get(pathList);
+                if (systemLibDirs != null) {
+                    libDirs.addAll(systemLibDirs);
+                }
+
+                elements = (Object[]) makePathElements.invoke(pathList, libDirs);
+            } else {
+                Method makePathElements = pathList.getClass().getDeclaredMethod("makePathElements", List.class, File.class, List.class);
+                makePathElements.setAccessible(true);
+
+                Field systemNativeLibDirsField = pathList.getClass().getDeclaredField("systemNativeLibraryDirectories");
+                systemNativeLibDirsField.setAccessible(true);
+                List<File> systemLibDirs = (List<File>) systemNativeLibDirsField.get(pathList);
+                if (systemLibDirs != null) {
+                    libDirs.addAll(systemLibDirs);
+                }
+                ArrayList<Throwable> suppressedExceptions = new ArrayList<>();
+                elements = (Object[]) makePathElements.invoke(pathList, libDirs, null, suppressedExceptions);
+            }
+            nativeLibraryPathElementsField.set(pathList, elements);
+
+
+        } catch (NoSuchFieldException | NoSuchMethodException e) {
+            throw new ReflectiveOperationException("Unable to inject native libraries", e);
         }
     }
 
