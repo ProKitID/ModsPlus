@@ -1,172 +1,93 @@
 package id.my.alvinq.modsplus;
 
-import org.jetbrains.annotations.NotNull;
-import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.os.Build;
-import android.widget.Toast;
-
-import dalvik.system.DexClassLoader;
-import android.content.Context;
+import org.jetbrains.annotations.NotNull;
 import java.io.*;
-import java.util.*;
 import java.lang.reflect.*;
-import java.util.jar.JarFile;
-import java.util.jar.JarEntry;
-import org.json.JSONObject;
+import java.util.*;
+import java.util.jar.*;
 
 public class Utils {
 
-  public static void deleteFolder(String folderPath) {
-        File folder = new File(folderPath);
-        if (folder.isDirectory()) {
-            df(folder);
-            Logger.get().i("Folder berhasil dihapus");
-        } else {
-            Logger.get().i("Folder tidak ada");
-        }
+    public static void deleteFolder(String path) {
+        File f = new File(path);
+        if (!f.exists()) return;
+        if (f.isDirectory()) for (File c : Objects.requireNonNull(f.listFiles())) deleteFolder(c.getPath());
+        f.delete();
+        Logger.get().i("Folder " + (f.exists() ? "gagal dihapus" : "berhasil dihapus"));
     }
 
-    private static void df(File folder) {
-        File[] files = folder.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    df(file);
-                } else {
-                    file.delete();
-                }
-            }
-        }
-        folder.delete();
+    public static Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
+        Field f = Objects.requireNonNull(loader.getClass().getSuperclass()).getDeclaredField("pathList");
+        f.setAccessible(true);
+        return f.get(loader);
     }
-  
-  public static Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
-        Field field = Objects.requireNonNull(loader.getClass().getSuperclass()).getDeclaredField("pathList");
-        field.setAccessible(true);
-        return field.get(loader);
-  }
 
-  public static void injectNativeLibraries(String nld, Object pathList) throws ReflectiveOperationException {
+    public static void injectNativeLibraries(String path, Object list) throws ReflectiveOperationException {
         try {
-            final File newLibDir = new File(nld);
+            File dir = new File(path);
+            Class<?> cls = list.getClass();
 
-            Field nativeLibraryDirectoriesField = pathList.getClass().getDeclaredField("nativeLibraryDirectories");
-            nativeLibraryDirectoriesField.setAccessible(true);
+            Field fDirs = cls.getDeclaredField("nativeLibraryDirectories");
+            fDirs.setAccessible(true);
+            List<File> dirs = new ArrayList<>((Collection<File>) fDirs.get(list));
+            dirs.removeIf(dir::equals);
+            dirs.add(0, dir);
+            fDirs.set(list, dirs);
 
-            Collection<File> currentDirs = (Collection<File>) nativeLibraryDirectoriesField.get(pathList);
-            if (currentDirs == null) {
-                currentDirs = new ArrayList<>();
-            }
+            Field fSys = cls.getDeclaredField("systemNativeLibraryDirectories");
+            fSys.setAccessible(true);
+            List<File> sys = (List<File>) fSys.get(list);
+            if (sys != null) dirs.addAll(sys);
 
-            List<File> libDirs = new ArrayList<>(currentDirs);
+            Field fElem = cls.getDeclaredField("nativeLibraryPathElements");
+            fElem.setAccessible(true);
 
-            Iterator<File> it = libDirs.iterator();
-            while (it.hasNext()) {
-                File libDir = it.next();
-                if (newLibDir.equals(libDir)) {
-                    it.remove();
-                    break;
-                }
-            }
-            libDirs.add(0, newLibDir);
-            nativeLibraryDirectoriesField.set(pathList, libDirs);
+            Method make = Build.VERSION.SDK_INT >= 25
+                    ? cls.getDeclaredMethod("makePathElements", List.class)
+                    : cls.getDeclaredMethod("makePathElements", List.class, File.class, List.class);
+            make.setAccessible(true);
 
-            Field nativeLibraryPathElementsField = pathList.getClass().getDeclaredField("nativeLibraryPathElements");
-            nativeLibraryPathElementsField.setAccessible(true);
+            Object[] elem = Build.VERSION.SDK_INT >= 25
+                    ? (Object[]) make.invoke(list, dirs)
+                    : (Object[]) make.invoke(list, dirs, null, new ArrayList<>());
 
-            Object[] elements;
-
-            if (Build.VERSION.SDK_INT >= 25) {
-                Method makePathElements = pathList.getClass().getDeclaredMethod("makePathElements", List.class);
-                makePathElements.setAccessible(true);
-
-                Field systemNativeLibDirsField = pathList.getClass().getDeclaredField("systemNativeLibraryDirectories");
-                systemNativeLibDirsField.setAccessible(true);
-                List<File> systemLibDirs = (List<File>) systemNativeLibDirsField.get(pathList);
-                if (systemLibDirs != null) {
-                    libDirs.addAll(systemLibDirs);
-                }
-
-                elements = (Object[]) makePathElements.invoke(pathList, libDirs);
-            } else {
-                Method makePathElements = pathList.getClass().getDeclaredMethod("makePathElements", List.class, File.class, List.class);
-                makePathElements.setAccessible(true);
-
-                Field systemNativeLibDirsField = pathList.getClass().getDeclaredField("systemNativeLibraryDirectories");
-                systemNativeLibDirsField.setAccessible(true);
-                List<File> systemLibDirs = (List<File>) systemNativeLibDirsField.get(pathList);
-                if (systemLibDirs != null) {
-                    libDirs.addAll(systemLibDirs);
-                }
-                ArrayList<Throwable> suppressedExceptions = new ArrayList<>();
-                elements = (Object[]) makePathElements.invoke(pathList, libDirs, null, suppressedExceptions);
-            }
-            nativeLibraryPathElementsField.set(pathList, elements);
-
-
-        } catch (NoSuchFieldException | NoSuchMethodException e) {
-            throw new ReflectiveOperationException("Unable to inject native libraries", e);
+            fElem.set(list, elem);
+        } catch (Exception e) {
+            throw new ReflectiveOperationException("Inject native libraries gagal", e);
         }
-  }
+    }
 
-  public static void copyFileFromJar(String jarFilePath, String sourceFileName, File destFile) throws IOException {
-    try (JarFile jarFile = new JarFile(jarFilePath)) {
-        JarEntry jarEntry = jarFile.getJarEntry(sourceFileName);
-        try (InputStream in = jarFile.getInputStream(jarEntry);
-             FileOutputStream out = new FileOutputStream(destFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
+    public static void copyFileFromJar(String jar, String src, File dst) throws IOException {
+        try (JarFile j = new JarFile(jar);
+             InputStream in = j.getInputStream(j.getJarEntry(src));
+             OutputStream out = new FileOutputStream(dst)) {
+            in.transferTo(out);
+        }
+    }
+
+    public static void copyFolderFromJar(String jar, String src, File dst) throws IOException {
+        try (JarFile j = new JarFile(jar)) {
+            Enumeration<JarEntry> e = j.entries();
+            while (e.hasMoreElements()) {
+                JarEntry en = e.nextElement();
+                if (!en.getName().startsWith(src + "/")) continue;
+                File outFile = new File(dst, en.getName().substring(src.length() + 1));
+                if (en.isDirectory()) continue;
+                outFile.getParentFile().mkdirs();
+                try (InputStream in = j.getInputStream(en);
+                     OutputStream out = new FileOutputStream(outFile)) {
+                    in.transferTo(out);
+                }
             }
         }
     }
-  }
 
-  public static void copyFolderFromJar(String jarFilePath, String sourceFolderName, File destFolder) throws IOException {
-    try (JarFile jarFile = new JarFile(jarFilePath)) {
-        Enumeration<JarEntry> entries = jarFile.entries();
-        while (entries.hasMoreElements()) {
-            JarEntry entry = entries.nextElement();
-            if (entry.getName().startsWith(sourceFolderName + "/")) {
-                String fileName = entry.getName().substring(sourceFolderName.length() + 1);
-                File destFile = new File(destFolder, fileName);
-                destFile.getParentFile().mkdirs();
-                try (InputStream in = jarFile.getInputStream(entry);
-                     FileOutputStream out = new FileOutputStream(destFile)) {
-                    byte[] buffer = new byte[1024];
-                    int bytesRead;
-                    while ((bytesRead = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                }
-            }
-        }
-      }
-   }
-  public static void copyFile(File source, File dest) throws IOException {
-    try (InputStream in = new FileInputStream(source);
-         OutputStream out = new FileOutputStream(dest)) {
-
-        byte[] buffer = new byte[4096];
-        int length;
-        while ((length = in.read(buffer)) > 0) {
-            out.write(buffer, 0, length);
+    public static void copyFile(File src, File dst) throws IOException {
+        dst.getParentFile().mkdirs();
+        try (InputStream in = new FileInputStream(src);
+             OutputStream out = new FileOutputStream(dst)) {
+            in.transferTo(out);
         }
     }
-  }
 }
