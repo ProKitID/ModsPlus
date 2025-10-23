@@ -45,7 +45,7 @@ public class Main {
                 for (File jar : jars) {
                     if (jar.getName().endsWith(".jar")) {
                         File dest = new File(internalLibs, jar.getName());
-                        copyFile(jar, dest);
+                        Utils.copyFile(jar, dest);
                     }
                 }
             }
