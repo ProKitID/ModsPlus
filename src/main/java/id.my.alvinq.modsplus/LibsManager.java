@@ -1,17 +1,16 @@
 package id.my.alvinq.modsplus;
 
-import dalvik.system.DexClassLoader;
 import android.content.Context;
-import java.io.*;
-import java.util.*;
-import java.lang.reflect.*;
-import java.util.jar.*;
+import android.content.res.AssetManager;
+import dalvik.system.DexClassLoader;
 import org.json.JSONObject;
-
+import java.io.*;
+import java.lang.reflect.Method;
+import java.util.Enumeration;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import android.content.res.AssetManager;
 
 public class LibsManager {
     private final Context context;
@@ -19,11 +18,10 @@ public class LibsManager {
     private static Context ctxv;
 
     public LibsManager(Context ctx) {
-        this.context = ctx;
+        context = ctx;
         ctxv = ctx;
         File dir = ctx.getDir("modsplus", Context.MODE_PRIVATE);
-        String path = dir.getAbsolutePath();
-        this.cacheDir = new File(path, "cache");
+        cacheDir = new File(dir, "cache");
         if (!cacheDir.exists()) cacheDir.mkdirs();
     }
 
@@ -41,20 +39,14 @@ public class LibsManager {
         boolean hasNative = manifest.optBoolean("native", false);
         boolean hasAssets = manifest.optBoolean("assets", false);
         String mainClass = manifest.optString("main", null);
-
         if (mainClass == null) {
             Logger.get().error("Field 'main' tidak ditemukan di manifest.json pada " + jarFile.getName());
             return;
         }
 
         try {
-            if(hasAssets) {
-            String jarName = jarFile.getName();
-            String apkName = jarName.substring(0, jarName.length() - 4) + ".apk";
-            String pathApk = context.getCacheDir().getAbsolutePath() + "libs/" + apkName;
-            extractToApk(jarFile);
-            }
-            
+            if (hasAssets) extractToApk(jarFile);
+
             File nativeDir = null;
             if (hasNative) {
                 nativeDir = new File(cacheDir, "libs/" + jarFile.getName().replace(".jar", "") + "/native");
@@ -73,26 +65,22 @@ public class LibsManager {
             );
 
             invokeMain(dcl, mainClass, nativeDir);
-
         } catch (Exception e) {
             Logger.get().error("Gagal memuat library: " + e);
         }
     }
 
-    private void invokeMain(DexClassLoader dcl, String className, File nd) {
-        //Thread.currentThread().setContextClassLoader(dcl);
+    private void invokeMain(DexClassLoader dcl, String className, File nativeDir) {
         try {
-            if(nd != null) {
-            String nld = nd.getAbsolutePath();
-            Object pathList = Utils.getPathList(dcl);
-            Utils.injectNativeLibraries(nld, pathList);
+            if (nativeDir != null) {
+                Object pathList = Utils.getPathList(dcl);
+                Utils.injectNativeLibraries(nativeDir.getAbsolutePath(), pathList);
             }
             Class<?> clazz = dcl.loadClass(className);
-            Method onLoad = clazz.getDeclaredMethod("onLoad", Context.class);
-            onLoad.invoke(null, context);
+            clazz.getDeclaredMethod("onLoad", Context.class).invoke(null, context);
             Logger.get().info("Loaded Class -> " + className + " Done!");
         } catch (Exception e) {
-            Throwable real = e instanceof InvocationTargetException ? e.getCause() : e;
+            Throwable real = (e instanceof java.lang.reflect.InvocationTargetException) ? e.getCause() : e;
             Logger.get().error("Error saat load class: " + getStackTraceAsString(real));
         }
     }
@@ -101,14 +89,12 @@ public class LibsManager {
         try (JarFile jar = new JarFile(jarFile)) {
             JarEntry entry = jar.getJarEntry("manifest.json");
             if (entry == null) return null;
-
             try (InputStream in = jar.getInputStream(entry);
                  BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-
-                StringBuilder jsonBuilder = new StringBuilder();
+                StringBuilder json = new StringBuilder();
                 String line;
-                while ((line = reader.readLine()) != null) jsonBuilder.append(line);
-                return new JSONObject(jsonBuilder.toString());
+                while ((line = reader.readLine()) != null) json.append(line);
+                return new JSONObject(json.toString());
             }
         } catch (Exception e) {
             Logger.get().error("Gagal membaca manifest: " + e);
@@ -122,23 +108,14 @@ public class LibsManager {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
                 if (!entry.getName().startsWith(folderName + "/") || entry.isDirectory()) continue;
-
-                String relativePath = entry.getName().substring(folderName.length() + 1);
-                File destFile = new File(destDir, relativePath);
+                File destFile = new File(destDir, entry.getName().substring(folderName.length() + 1));
                 destFile.getParentFile().mkdirs();
-
                 try (InputStream in = jar.getInputStream(entry);
-                     FileOutputStream out = new FileOutputStream(destFile)) {
-                    copyStream(in, out);
+                     OutputStream out = new FileOutputStream(destFile)) {
+                    in.transferTo(out);
                 }
             }
         }
-    }
-
-    private void copyStream(InputStream in, OutputStream out) throws IOException {
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-        while ((bytesRead = in.read(buffer)) != -1) out.write(buffer, 0, bytesRead);
     }
 
     private String getStackTraceAsString(Throwable t) {
@@ -148,54 +125,33 @@ public class LibsManager {
     }
 
     public static void extractToApk(File jarFile) throws IOException {
-        if (!jarFile.exists()) {
-            throw new FileNotFoundException("File JAR tidak ditemukan: " + jarFile.getAbsolutePath());
-        }
+        if (!jarFile.exists()) throw new FileNotFoundException("File JAR tidak ditemukan: " + jarFile.getAbsolutePath());
 
-        String baseName = jarFile.getName();
-        if (baseName.endsWith(".jar")) {
-            baseName = baseName.substring(0, baseName.length() - 4);
-        }
-
+        String baseName = jarFile.getName().replace(".jar", "");
         File apkFile = new File(jarFile.getParentFile(), baseName + ".apk");
         File tempDir = new File(jarFile.getParentFile(), baseName + "_temp");
 
         if (tempDir.exists()) deleteRecursively(tempDir);
         tempDir.mkdirs();
-
         File assetsDir = new File(tempDir, "assets");
         assetsDir.mkdirs();
 
         boolean foundAssets = false;
-
         try (JarFile jar = new JarFile(jarFile)) {
             Enumeration<JarEntry> entries = jar.entries();
-
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
-                String entryName = entry.getName();
-
-                // Hanya ekstrak "assets/"
-                if (entryName.startsWith("assets/")) {
-                    foundAssets = true;
-                    File outFile = new File(tempDir, entryName);
-
-                    if (entry.isDirectory()) {
-                        outFile.mkdirs();
-                        continue;
-                    }
-
-                    File parent = outFile.getParentFile();
-                    if (!parent.exists()) parent.mkdirs();
-
-                    try (InputStream is = jar.getInputStream(entry);
-                         OutputStream os = new FileOutputStream(outFile)) {
-                        byte[] buffer = new byte[4096];
-                        int len;
-                        while ((len = is.read(buffer)) != -1) {
-                            os.write(buffer, 0, len);
-                        }
-                    }
+                if (!entry.getName().startsWith("assets/")) continue;
+                foundAssets = true;
+                File outFile = new File(tempDir, entry.getName());
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                    continue;
+                }
+                outFile.getParentFile().mkdirs();
+                try (InputStream is = jar.getInputStream(entry);
+                     OutputStream os = new FileOutputStream(outFile)) {
+                    is.transferTo(os);
                 }
             }
         }
@@ -206,27 +162,21 @@ public class LibsManager {
             return;
         }
 
-        // Kompres jadi APK (zip)
         zipFolder(tempDir, apkFile);
-
-        // Bersihkan folder sementara
         deleteRecursively(tempDir);
-
         Logger.get().i("[JarAssetsToApk] Berhasil membuat: " + apkFile.getAbsolutePath());
         addAssetOverride(ctxv.getAssets(), apkFile.getAbsolutePath());
     }
 
-    /** Membuat ZIP dari folder */
-    private static void zipFolder(File sourceFolder, File zipFile) throws IOException {
+    private static void zipFolder(File source, File zipFile) throws IOException {
         try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))) {
-            zipFileRecursive(sourceFolder, sourceFolder, zos);
+            zipFileRecursive(source, source, zos);
         }
     }
 
     private static void zipFileRecursive(File rootDir, File source, ZipOutputStream zos) throws IOException {
         File[] files = source.listFiles();
         if (files == null) return;
-
         for (File file : files) {
             String entryName = rootDir.toPath().relativize(file.toPath()).toString().replace("\\", "/");
             if (file.isDirectory()) {
@@ -235,34 +185,27 @@ public class LibsManager {
                 zos.closeEntry();
                 zipFileRecursive(rootDir, file, zos);
             } else {
-                try (FileInputStream fis = new FileInputStream(file)) {
+                try (InputStream fis = new FileInputStream(file)) {
                     zos.putNextEntry(new ZipEntry(entryName));
-                    byte[] buffer = new byte[4096];
-                    int len;
-                    while ((len = fis.read(buffer)) != -1) {
-                        zos.write(buffer, 0, len);
-                    }
+                    fis.transferTo(zos);
                     zos.closeEntry();
                 }
             }
         }
     }
 
-    /** Hapus folder/file rekursif */
     private static void deleteRecursively(File file) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
-            if (files != null) {
-                for (File f : files) deleteRecursively(f);
-            }
+            if (files != null) for (File f : files) deleteRecursively(f);
         }
         file.delete();
     }
 
-    public static void addAssetOverride(AssetManager mgr, String packageResourcePath) {
+    public static void addAssetOverride(AssetManager mgr, String packagePath) {
         try {
-            Method method = AssetManager.class.getMethod("addAssetPath", String.class);
-            method.invoke(mgr, packageResourcePath);
+            Method m = AssetManager.class.getMethod("addAssetPath", String.class);
+            m.invoke(mgr, packagePath);
         } catch (Throwable t) {
             t.printStackTrace();
         }
