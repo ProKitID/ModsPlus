@@ -43,7 +43,7 @@ public class Main {
             File[] jars = externalLibs.listFiles();
             if (jars != null) {
                 for (File jar : jars) {
-                    if (jar.getName().endsWith(".jar")) {
+                    if (jar.getName().endsWith(".modplus")) {
                         File dest = new File(internalLibs, jar.getName());
                         Utils.copyFile(jar, dest);
                     }
@@ -62,7 +62,7 @@ public class Main {
 
             if (jars != null) {
                 for (File jar : jars) {
-                    if (!jar.getName().endsWith(".jar")) continue;
+                    if (!jar.getName().endsWith(".modplus")) continue;
                     Logger.get().info("Loading -> " + jar.getName());
                     LibsManager.get(ctx).loadLib(jar);
                     Logger.get().info("Loaded -> " + jar.getName() + " Done!");
