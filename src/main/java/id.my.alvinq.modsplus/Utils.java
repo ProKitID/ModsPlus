@@ -14,14 +14,18 @@ public class Utils {
         if (!f.exists()) return;
         if (f.isDirectory()) {
             File[] files = f.listFiles();
-            if (files != null) for (File c : files) deleteFolder(c.getPath());
+            if (files != null) {
+                for (File c : files) deleteFolder(c.getAbsolutePath());
+            }
         }
-        f.delete();
-        Logger.get().i("Folder " + (f.exists() ? "gagal dihapus" : "berhasil dihapus"));
+        boolean deleted = f.delete();
+        Logger.get().i("Folder " + (deleted ? "berhasil dihapus" : "gagal dihapus") + ": " + f.getAbsolutePath());
     }
 
     public static Object getPathList(@NotNull ClassLoader loader) throws ReflectiveOperationException {
-        Field f = Objects.requireNonNull(loader.getClass().getSuperclass()).getDeclaredField("pathList");
+        Class<?> superCls = loader.getClass().getSuperclass();
+        if (superCls == null) throw new ReflectiveOperationException("Superclass dari loader tidak ditemukan");
+        Field f = superCls.getDeclaredField("pathList");
         f.setAccessible(true);
         return f.get(loader);
     }
@@ -46,14 +50,17 @@ public class Utils {
             Field fElem = cls.getDeclaredField("nativeLibraryPathElements");
             fElem.setAccessible(true);
 
-            Method make = Build.VERSION.SDK_INT >= 25
-                    ? cls.getDeclaredMethod("makePathElements", List.class)
-                    : cls.getDeclaredMethod("makePathElements", List.class, File.class, List.class);
-            make.setAccessible(true);
-
-            Object[] elem = Build.VERSION.SDK_INT >= 25
-                    ? (Object[]) make.invoke(list, dirs)
-                    : (Object[]) make.invoke(list, dirs, null, new ArrayList<>());
+            Method make;
+            Object[] elem;
+            if (Build.VERSION.SDK_INT >= 25) {
+                make = cls.getDeclaredMethod("makePathElements", List.class);
+                make.setAccessible(true);
+                elem = (Object[]) make.invoke(list, dirs);
+            } else {
+                make = cls.getDeclaredMethod("makePathElements", List.class, File.class, List.class);
+                make.setAccessible(true);
+                elem = (Object[]) make.invoke(list, dirs, null, new ArrayList<>());
+            }
 
             fElem.set(list, elem);
         } catch (Exception e) {
@@ -62,10 +69,13 @@ public class Utils {
     }
 
     public static void copyFileFromJar(String jar, String src, File dst) throws IOException {
-        try (JarFile j = new JarFile(jar);
-             InputStream in = j.getInputStream(j.getJarEntry(src));
-             OutputStream out = new FileOutputStream(dst)) {
-            copyStream(in, out);
+        try (JarFile j = new JarFile(jar)) {
+            JarEntry entry = j.getJarEntry(src);
+            if (entry == null) return;
+            try (InputStream in = j.getInputStream(entry);
+                 OutputStream out = new FileOutputStream(dst)) {
+                copyStream(in, out);
+            }
         }
     }
 
@@ -75,9 +85,10 @@ public class Utils {
             while (e.hasMoreElements()) {
                 JarEntry en = e.nextElement();
                 if (!en.getName().startsWith(src + "/")) continue;
-                File outFile = new File(dst, en.getName().substring(src.length() + 1));
                 if (en.isDirectory()) continue;
-                outFile.getParentFile().mkdirs();
+                File outFile = new File(dst, en.getName().substring(src.length() + 1));
+                File parent = outFile.getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
                 try (InputStream in = j.getInputStream(en);
                      OutputStream out = new FileOutputStream(outFile)) {
                     copyStream(in, out);
@@ -87,7 +98,7 @@ public class Utils {
     }
 
     public static void copyFile(File src, File dst) throws IOException {
-        dst.getParentFile().mkdirs();
+        if (!dst.getParentFile().exists()) dst.getParentFile().mkdirs();
         try (InputStream in = new FileInputStream(src);
              OutputStream out = new FileOutputStream(dst)) {
             copyStream(in, out);
